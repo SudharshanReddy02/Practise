@@ -1,0 +1,191 @@
+package com.wipro.Test;
+import java.net.URI;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import java.security.cert.X509Certificate;
+import java.security.NoSuchAlgorithmException;
+import java.security.KeyManagementException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.URI;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
+import java.security.cert.CertificateException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+public class RestconfMuskan {
+	
+	
+	
+
+	
+
+	
+    private static final String BASE_URL = "https://172.20.0.86/restconf/data/Cisco-IOS-XE-native:native/";
+    private static final String VLAN_URL = BASE_URL + "vlan";
+    		 
+
+    private static final String AUTH = Base64.getEncoder().encodeToString("admin:cisco123".getBytes(StandardCharsets.UTF_8));
+    //private static final HttpClient CLIENT = HttpClient.newHttpClient();
+    private static final HttpClient CLIENT = createHttpClient();
+
+    public static void main(String[] args) {
+        retrieveConfig();
+        addVLAN(100, "VLAN100");
+        deleteVLAN(50);
+    }
+    
+    private static HttpClient createHttpClient() {
+        try {
+            // Trust manager that accepts all certificates without validation
+            TrustManager[] trustAllCertificates = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return null;
+                    }
+
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) throws java.security.cert.CertificateException {}
+
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) throws java.security.cert.CertificateException {
+                        // Skipping SAN validation for testing
+                    }
+                }
+            };
+
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustAllCertificates, new java.security.SecureRandom());
+
+            return HttpClient.newBuilder()
+                    .sslContext(sslContext)
+                    .build();
+        } catch (NoSuchAlgorithmException | KeyManagementException e) {
+            throw new RuntimeException("Error creating SSL context", e);
+        }
+    }
+    
+    private static void retrieveConfig() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(BASE_URL))
+                    .header("Authorization", "Basic " + AUTH)
+                    .header("Accept", "application/yang-data+json")
+                    .GET()
+                    .build();
+            
+            HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("Retrieving current network configuration...");
+            System.out.println("Configuration retrieved successfully: " + response.body());
+        } catch (Exception e) {
+            System.err.println("Error retrieving configuration: " + e.getMessage());
+        }
+    }
+
+    private static void addVLAN(int vlanId, String name) {
+        try {
+            String jsonPayload = String.format( "{ \"Cisco-IOS-XE-vlan:vlan\": { \"vlan-list\": [ { \"vlan-id\": %d, \"name\": \"%s\" } ] } }", vlanId, name);
+            
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(VLAN_URL))
+                    .header("Authorization", "Basic " + AUTH)
+                    .header("Content-Type", "application/yang-data+json")
+                    .header("Accept", "application/yang-data+json")
+                    .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                    .build();
+            
+            HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("Adding VLAN " + vlanId + "...");
+            System.out.println("VLAN " + vlanId + " added successfully: " + response.body());
+        } catch (Exception e) {
+            System.err.println("Error adding VLAN: " + e.getMessage());
+        }
+    }
+
+    private static void deleteVLAN(int vlanId) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(VLAN_URL + "/vlan-list/vlan=" + vlanId))  
+                    .header("Authorization", "Basic " + AUTH)
+                    .DELETE()
+                    .build();
+            
+            HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200 || response.statusCode() == 204) {
+            System.out.println("Deleting VLAN " + vlanId + "...");
+            System.out.println("VLAN " + vlanId + " deleted successfully: " + response.body());
+            }
+            
+            else {
+                System.err.println("Failed to delete VLAN " + vlanId + ". Status code: " + response.statusCode());
+                System.err.println("Response: " + response.body());
+            }
+        } catch (Exception e) {
+            System.err.println("Error deleting VLAN: " + e.getMessage());
+        }
+    }
+}
+
+
+
+
+---------------------------------------------------------------
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>nms.wipro</groupId>
+  <artifactId>Milestone4</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>Milestone4</name>
+  <url>http://maven.apache.org</url>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.0</version>
+        </dependency>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  </dependencies>
+</project>
+
+
+
